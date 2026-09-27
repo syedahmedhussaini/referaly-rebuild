@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: referaly-db
+    environment:
+      POSTGRES_USER: referaly
+      POSTGRES_PASSWORD: referaly
+      POSTGRES_DB: referaly
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U referaly -d referaly']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
