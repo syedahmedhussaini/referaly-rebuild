@@ -42,6 +42,17 @@ Useful scripts:
 | `npm run db:generate` | Generate a migration from schema changes  |
 | `npm run db:migrate`  | Apply migrations to `DATABASE_URL`        |
 | `npm run db:push`     | Push schema directly (dev only, no migration file) |
+| `npm run db:seed`     | Idempotent import of demo clinics from `../seed-data/clinics.json` |
+
+## Seeding demo data
+
+`npm run db:seed` imports the 10 demo clinics in `../seed-data/clinics.json`
+into `clinics`, `locations`, and `services`. It is safe to re-run: clinics
+already present (matched by name + address) are skipped.
+
+> **Before Phase 2 (map search):** `locations.geom` is left `NULL` by the seed.
+> Geocode every `locations.address` with the Google Geocoding API and backfill
+> `geom` — viewport map queries depend on it. See the TODO in `src/db/seed.ts`.
 
 ## Database schema
 
@@ -118,7 +129,8 @@ src/
     session.ts     # Server helpers: getSession, requireUser
   routes/
     __root.tsx     # HTML shell
-    index.tsx      # Home page (placeholder)
+    index.tsx      # Directory (SSR listing + scan-type filters)
+    clinic.$clinicId.tsx  # Clinic detail (contact, services, wait times, JSON-LD)
     api/auth/$.ts  # Better Auth handler
 drizzle/           # SQL migrations
 .github/workflows/ci.yml  # install → typecheck → lint → build
