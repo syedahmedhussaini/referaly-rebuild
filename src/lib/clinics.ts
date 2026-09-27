@@ -43,7 +43,7 @@ function normalizeHours(hours: unknown): ClinicHours {
  * Minimal standard-schema validator (no extra deps) for server-fn inputs.
  * Types are carried explicitly via `~standard.types`.
  */
-function standardValidator<TInput, TOutput>(
+export function standardValidator<TInput, TOutput>(
 	validate: (
 		value: unknown,
 	) => { value: TOutput } | { issues: Array<{ message: string }> },
@@ -69,14 +69,15 @@ const scanFilterValidator = standardValidator<
 	};
 });
 
-const clinicIdValidator = standardValidator<{ id: string }, { id: string }>(
-	(value) => {
-		const id = (value as { id?: unknown } | undefined)?.id;
-		return typeof id === 'string' && id.length > 0
-			? { value: { id } }
-			: { issues: [{ message: 'Invalid clinic id' }] };
-	},
-);
+export const clinicIdValidator = standardValidator<
+	{ id: string },
+	{ id: string }
+>((value) => {
+	const id = (value as { id?: unknown } | undefined)?.id;
+	return typeof id === 'string' && id.length > 0
+		? { value: { id } }
+		: { issues: [{ message: 'Invalid clinic id' }] };
+});
 
 const clinicWith = {
 	locations: true,

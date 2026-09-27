@@ -1,32 +1,35 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router';
 import type { ClinicDetail, ClinicHours } from '#/lib/clinics';
 import { getClinic, SCAN_TYPE_LABELS } from '#/lib/clinics';
+import { type ClinicGoogleReviews, getClinicReviews } from '#/lib/reviews';
 
 export const Route = createFileRoute('/clinic/$clinicId')({
 	loader: async ({ params }) => {
 		const clinic = await getClinic({ data: { id: params.clinicId } });
 		if (!clinic) throw notFound();
-		return clinic;
+		const googleReviews = await getClinicReviews({ data: { id: clinic.id } });
+		return { clinic, googleReviews };
 	},
 	head: ({ loaderData }) => {
-		if (!loaderData) {
+		const clinic = loaderData?.clinic;
+		if (!clinic) {
 			return { meta: [{ title: 'Clinic not found — Referaly' }] };
 		}
-		const location = loaderData.locations[0];
+		const location = clinic.locations[0];
 		const address = location?.address ?? 'GTA';
 		return {
 			meta: [
-				{ title: `${loaderData.name} — Referaly` },
+				{ title: `${clinic.name} — Referaly` },
 				{
 					name: 'description',
-					content: `${loaderData.name}, diagnostic imaging clinic at ${address}. Services, contact info and wait times.`,
+					content: `${clinic.name}, diagnostic imaging clinic at ${address}. Services, contact info and wait times.`,
 				},
 				{
 					'script:ld+json': {
 						'@context': 'https://schema.org',
 						'@type': 'MedicalClinic',
-						name: loaderData.name,
-						...(loaderData.phone ? { telephone: loaderData.phone } : {}),
+						name: clinic.name,
+						...(clinic.phone ? { telephone: clinic.phone } : {}),
 						address: {
 							'@type': 'PostalAddress',
 							streetAddress: location?.address,
@@ -35,7 +38,7 @@ export const Route = createFileRoute('/clinic/$clinicId')({
 							postalCode: location?.postalCode,
 							addressCountry: 'CA',
 						},
-						medicalSpecialty: loaderData.services.map(
+						medicalSpecialty: clinic.services.map(
 							(s) => SCAN_TYPE_LABELS[s.scanType],
 						),
 					},
@@ -48,7 +51,7 @@ export const Route = createFileRoute('/clinic/$clinicId')({
 });
 
 function ClinicDetailPage() {
-	const clinic = Route.useLoaderData();
+	const { clinic, googleReviews } = Route.useLoaderData();
 	const location = clinic.locations[0];
 
 	return (
@@ -159,6 +162,12 @@ function ClinicDetailPage() {
 				)}
 			</section>
 
+			<GoogleReviewsSection
+				clinicName={clinic.name}
+				address={location?.address}
+				reviews={googleReviews}
+			/>
+
 			{clinic.about && (
 				<section
 					aria-label="About this clinic"
@@ -186,6 +195,116 @@ function HoursDisplay({ hours }: { hours: ClinicHours }) {
 				</li>
 			))}
 		</ul>
+	);
+}
+
+/** Google's attribution policy: show the author name with each review. */
+function GoogleReviewsSection({
+	clinicName,
+	address,
+	reviews,
+}: {
+	clinicName: string;
+	address: string | undefined;
+	reviews: ClinicGoogleReviews | null;
+}) {
+	const mapsUrl = reviews?.placeId
+		? `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(reviews.placeId)}`
+		: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+				[clinicName, address].filter(Boolean).join(', '),
+			)}`;
+
+	return (
+		<section
+			aria-label="Patient reviews"
+			className="mt-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"
+		>
+			<h2 className="text-lg font-semibold">What patients say</h2>
+			{reviews && reviews.reviews.length > 0 ? (
+				<>
+					{(reviews.rating != null || reviews.reviewCount != null) && (
+						<p className="mt-2 flex items-center gap-2 text-sm text-neutral-600">
+							{reviews.rating != null && <Stars rating={reviews.rating} />}
+							{reviews.reviewCount != null && (
+								<span>
+									{reviews.reviewCount} Google review
+									{reviews.reviewCount === 1 ? '' : 's'}
+								</span>
+							)}
+						</p>
+					)}
+					<ul className="mt-4 space-y-4">
+						{reviews.reviews.map((r, i) => (
+							<li
+								key={`${r.author}-${r.publishedAt ?? i}`}
+								className="border-b border-neutral-100 pb-4 last:border-0 last:pb-0"
+							>
+								<div className="flex items-center justify-between gap-2">
+									<p className="text-sm font-medium text-neutral-900">
+										{r.authorUri ? (
+											<a
+												href={r.authorUri}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="hover:underline"
+											>
+												{r.author}
+											</a>
+										) : (
+											r.author
+										)}
+									</p>
+									{r.relativeTime && (
+										<p className="shrink-0 text-xs text-neutral-400">
+											{r.relativeTime}
+										</p>
+									)}
+								</div>
+								{r.rating != null && (
+									<div className="mt-1">
+										<Stars rating={r.rating} />
+									</div>
+								)}
+								{r.text && (
+									<p className="mt-1.5 text-sm text-neutral-700">{r.text}</p>
+								)}
+							</li>
+						))}
+					</ul>
+					<p className="mt-4 text-xs text-neutral-400">
+						Reviews from Google ·{' '}
+						<a
+							href={mapsUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-blue-700 hover:underline"
+						>
+							See all reviews on Google Maps
+						</a>
+					</p>
+				</>
+			) : (
+				<p className="mt-2 text-sm text-neutral-500">
+					{reviews
+						? 'No Google reviews found for this clinic yet.'
+						: "Google reviews haven't been collected for this clinic yet."}
+				</p>
+			)}
+		</section>
+	);
+}
+
+function Stars({ rating }: { rating: number }) {
+	const full = Math.round(rating);
+	return (
+		<span
+			role="img"
+			aria-label={`Rated ${rating} out of 5`}
+			className="text-amber-500"
+		>
+			{'★'.repeat(full)}
+			<span className="text-neutral-300">{'★'.repeat(5 - full)}</span>
+		</span>
 	);
 }
 

@@ -43,6 +43,9 @@ Useful scripts:
 | `npm run db:migrate`  | Apply migrations to `DATABASE_URL`        |
 | `npm run db:push`     | Push schema directly (dev only, no migration file) |
 | `npm run db:seed`     | Idempotent import of demo clinics from `../seed-data/clinics.json` |
+| `npm run db:geocode`  | Backfill `locations.geom` via the Google Geocoding API (needs `GOOGLE_MAPS_API_KEY`) |
+| `npm run db:enrich-reviews` | Fetch Google review snapshots via Places API (New) (needs `GOOGLE_MAPS_API_KEY`) |
+| `npm run test`         | Unit tests (vitest) |
 
 ## Seeding demo data
 
@@ -50,9 +53,9 @@ Useful scripts:
 into `clinics`, `locations`, and `services`. It is safe to re-run: clinics
 already present (matched by name + address) are skipped.
 
-> **Before Phase 2 (map search):** `locations.geom` is left `NULL` by the seed.
-> Geocode every `locations.address` with the Google Geocoding API and backfill
-> `geom` — viewport map queries depend on it. See the TODO in `src/db/seed.ts`.
+> **Before the map is useful:** the seed leaves `locations.geom` NULL. Run
+> `npm run db:geocode` (needs `GOOGLE_MAPS_API_KEY`) — see
+> "Geocoding clinic locations" below.
 
 ## Database schema
 
@@ -99,6 +102,62 @@ Local dev uses Docker, but any Postgres with PostGIS works — including Neon:
 3. Set `DATABASE_URL` in `.env` to the Neon connection string.
 4. Run `npm run db:migrate` — the migration is idempotent (`IF NOT EXISTS`).
 
+## Google Maps setup
+
+The map search and review enrichment need a Google Cloud project with billing
+enabled (the free monthly allowances per SKU cover this project's scale —
+see "Google reviews enrichment" below). Enable these three APIs:
+
+- **Maps JavaScript API** — the clinic map on the directory page
+- **Places API (New)** — clinic → Place ID lookup and review snapshots
+- **Geocoding API** — one-time backfill of clinic coordinates
+
+Create **two** API keys and restrict them in
+[Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials):
+
+| Key | Used by | Restriction |
+| --- | ------- | ----------- |
+| `GOOGLE_MAPS_API_KEY` | `db:geocode`, `db:enrich-reviews` (server-side) | IP address |
+| `VITE_GOOGLE_MAPS_API_KEY` | Maps JavaScript API (browser) | HTTP referrer (your domain) |
+
+The server key must never be exposed to the browser. If
+`VITE_GOOGLE_MAPS_API_KEY` is unset, the directory shows a "map unavailable"
+fallback instead of crashing.
+
+## Geocoding clinic locations
+
+The seed leaves `locations.geom` NULL. Backfill it before the map is useful:
+
+```bash
+npm run db:geocode
+```
+
+Idempotent (skips already-geocoded rows), rate-limited, and fails fast on
+API-key problems. The map's viewport query
+(`ST_Intersects` against the `locations_geom_gist_idx` GiST index) depends on
+this.
+
+## Google reviews enrichment
+
+```bash
+npm run db:enrich-reviews
+```
+
+For each clinic: Text Search (New) resolves the Google Place ID from name +
+address, then Place Details (New) fetches a snapshot (rating, review count,
+up to 5 reviews) into `clinic_google_reviews`. The clinic detail page renders
+it as "What patients say" with author attribution, per Google's policy.
+
+Compliance notes (Google Maps Platform terms):
+
+- Place Details returns **at most 5 reviews** — no pagination, no full feed.
+- **Place content may not be cached longer than 30 days** (place IDs may be
+  stored indefinitely). Refresh weekly, e.g. a cron job:
+  `0 3 * * 0 cd /path/to/app && npm run db:enrich-reviews`
+- The Places API (New) free monthly allowances per SKU cover a few hundred
+  clinics refreshed weekly; monitor usage in the Cloud Console and set budget
+  alerts from day one.
+
 ## Enabling Google OAuth
 
 Google sign-in is wired but dormant: it activates automatically when both
@@ -123,15 +182,25 @@ no Google Cloud account is required to develop.
 ```
 src/
   db/            # Drizzle schemas (schema.ts, auth-schema.ts) + client.ts
+  db/seed.ts       # demo clinic import (npm run db:seed)
+  db/geocode.ts    # Geocoding API backfill of locations.geom
+  db/enrich-reviews.ts  # Places API (New) Google-reviews snapshots
   lib/
     auth.ts        # Better Auth server config (roles, Google env-gating)
     auth-client.ts # React client (signIn/signUp/signOut/useSession)
     session.ts     # Server helpers: getSession, requireUser
+    clinics.ts     # directory/detail server fns + scan-type helpers
+    map.ts         # viewport (bbox) server fn for the map
+    reviews.ts     # cached Google-reviews server fn
+    geo.ts         # pure bbox validation (unit-tested)
+    google-places.ts  # pure Places/Geocoding helpers (unit-tested)
+  components/
+    ClinicMap.tsx  # Airbnb-style map (js-api-loader + markerclusterer)
   routes/
     __root.tsx     # HTML shell
-    index.tsx      # Directory (SSR listing + scan-type filters)
-    clinic.$clinicId.tsx  # Clinic detail (contact, services, wait times, JSON-LD)
+    index.tsx      # Directory (SSR list + scan-type filters + map)
+    clinic.$clinicId.tsx  # Clinic detail (contact, services, wait times, Google reviews, JSON-LD)
     api/auth/$.ts  # Better Auth handler
 drizzle/           # SQL migrations
-.github/workflows/ci.yml  # install → typecheck → lint → build
+.github/workflows/ci.yml  # install → typecheck → lint → test → build
 ```

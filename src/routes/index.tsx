@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { useState } from 'react';
+import { ClinicMap } from '#/components/ClinicMap';
 import type { ClinicDirectoryEntry, ScanType } from '#/lib/clinics';
 import {
 	isScanType,
@@ -33,9 +35,10 @@ export const Route = createFileRoute('/')({
 function DirectoryPage() {
 	const clinicList = Route.useLoaderData();
 	const { scanType } = Route.useSearch();
+	const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
 
 	return (
-		<div className="mx-auto max-w-3xl px-4 py-8">
+		<div className="mx-auto max-w-7xl px-4 py-8">
 			<header>
 				<h1 className="text-4xl font-bold tracking-tight">Referaly</h1>
 				<p className="mt-2 text-lg text-neutral-600">
@@ -63,20 +66,62 @@ function DirectoryPage() {
 				</div>
 			</nav>
 
-			<main className="mt-6">
-				{clinicList.length === 0 ? (
-					<p className="rounded-lg border border-neutral-200 p-6 text-center text-neutral-500">
-						No clinics found
-						{scanType ? ` offering ${SCAN_TYPE_LABELS[scanType]}` : ''} yet.
-					</p>
-				) : (
-					<ul className="space-y-4">
-						{clinicList.map((clinic) => (
-							<ClinicCard key={clinic.id} clinic={clinic} />
-						))}
-					</ul>
-				)}
-			</main>
+			{/* List / map toggle — mobile only; desktop shows both side by side. */}
+			<fieldset className="mt-4 inline-flex items-center rounded-full border border-neutral-300 p-1 lg:hidden">
+				<legend className="sr-only">Directory view</legend>
+				{(
+					[
+						['list', 'List'],
+						['map', 'Map'],
+					] as const
+				).map(([value, label]) => (
+					<button
+						key={value}
+						type="button"
+						aria-pressed={mobileView === value}
+						onClick={() => setMobileView(value)}
+						className={`rounded-full px-5 py-1.5 text-sm font-medium transition-colors ${
+							mobileView === value
+								? 'bg-neutral-900 text-white'
+								: 'text-neutral-600 hover:text-neutral-900'
+						}`}
+					>
+						{label}
+					</button>
+				))}
+			</fieldset>
+
+			<div className="mt-6 lg:grid lg:grid-cols-12 lg:gap-8">
+				<main
+					className={`lg:col-span-7 ${
+						mobileView === 'list' ? '' : 'hidden lg:block'
+					}`}
+				>
+					{clinicList.length === 0 ? (
+						<p className="rounded-lg border border-neutral-200 p-6 text-center text-neutral-500">
+							No clinics found
+							{scanType ? ` offering ${SCAN_TYPE_LABELS[scanType]}` : ''} yet.
+						</p>
+					) : (
+						<ul className="space-y-4">
+							{clinicList.map((clinic) => (
+								<ClinicCard key={clinic.id} clinic={clinic} />
+							))}
+						</ul>
+					)}
+				</main>
+
+				<aside
+					aria-label="Clinic map"
+					className={`lg:col-span-5 ${
+						mobileView === 'map' ? '' : 'hidden lg:block'
+					}`}
+				>
+					<div className="h-[60vh] lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
+						<ClinicMap scanType={scanType} />
+					</div>
+				</aside>
+			</div>
 		</div>
 	);
 }

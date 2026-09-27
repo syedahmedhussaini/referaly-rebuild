@@ -7,9 +7,9 @@
  *
  * Usage: npm run db:seed   (requires DATABASE_URL pointing at a live Postgres)
  *
- * TODO (before Phase 2 map search): geocode `locations.address` with the
- * Google Geocoding API and backfill `locations.geom`. Map viewport queries
- * depend on it — geom is intentionally left NULL here.
+ * TODO (before the map is useful): run `npm run db:geocode` to backfill
+ * `locations.geom` via the Google Geocoding API — viewport map queries
+ * depend on it. Geom is intentionally left NULL here.
  */
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

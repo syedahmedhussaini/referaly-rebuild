@@ -4,6 +4,7 @@ import {
 	index,
 	integer,
 	jsonb,
+	numeric,
 	pgEnum,
 	pgTable,
 	text,
@@ -162,12 +163,52 @@ export const clinicClaims = pgTable(
 	],
 );
 
-export const clinicsRelations = relations(clinics, ({ many }) => ({
+/**
+ * Cached snapshot of a clinic's Google reviews (Places API, New).
+ *
+ * Google's terms cap Place Details at 5 reviews per place and forbid caching
+ * place content beyond 30 days (place IDs may be stored indefinitely) — see
+ * `npm run db:enrich-reviews`, which refreshes this table.
+ */
+export const clinicGoogleReviews = pgTable(
+	'clinic_google_reviews',
+	{
+		id: idColumn(),
+		clinicId: text('clinic_id')
+			.notNull()
+			.references(() => clinics.id, { onDelete: 'cascade' }),
+		placeId: text('place_id'),
+		/** Aggregate Google rating, e.g. 4.3 (pg numeric -> string in JS). */
+		rating: numeric('rating'),
+		/** Total Google review count (userRatingCount). */
+		reviewCount: integer('review_count'),
+		/** Up to 5 normalized review objects (see lib/google-places.ts). */
+		reviews: jsonb('reviews'),
+		fetchedAt: timestamp('fetched_at', { withTimezone: true }),
+		...timestamps(),
+	},
+	(table) => [
+		uniqueIndex('clinic_google_reviews_clinic_unique').on(table.clinicId),
+	],
+);
+
+export const clinicsRelations = relations(clinics, ({ many, one }) => ({
 	locations: many(locations),
 	services: many(services),
 	waitTimes: many(waitTimes),
 	claims: many(clinicClaims),
+	googleReviews: one(clinicGoogleReviews),
 }));
+
+export const clinicGoogleReviewsRelations = relations(
+	clinicGoogleReviews,
+	({ one }) => ({
+		clinic: one(clinics, {
+			fields: [clinicGoogleReviews.clinicId],
+			references: [clinics.id],
+		}),
+	}),
+);
 
 export const locationsRelations = relations(locations, ({ one }) => ({
 	clinic: one(clinics, {
