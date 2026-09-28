@@ -15,11 +15,6 @@ on:
         description: "Geocode locations missing coordinates (OpenStreetMap, no key)"
         type: boolean
         default: false
-      diagnose:
-        description: "Run the homepage loader query and print the real error"
-        type: boolean
-        default: false
-
 jobs:
   db:
     runs-on: ubuntu-latest
@@ -50,7 +45,3 @@ jobs:
       - name: Geocode
         if: ${{ inputs.geocode }}
         run: npm run db:geocode:nominatim
-
-      - name: Diagnose
-        if: ${{ inputs.diagnose }}
-        run: npm run db:diagnose

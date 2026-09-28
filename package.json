@@ -22,8 +22,6 @@
     "test": "vitest run",
     "start": "node --env-file=.env .output/server/index.mjs",
     "db:geocode:nominatim": "tsx src/db/geocode-nominatim.ts",
-    "db:diagnose": "tsx src/db/diagnose.ts",
-    "db:rawcheck": "tsx src/db/rawcheck.ts"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.3",
