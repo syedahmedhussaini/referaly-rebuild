@@ -26,18 +26,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install
-        working-directory: app
         run: npm ci
 
       - name: Migrate
         if: ${{ inputs.migrate }}
-        working-directory: app
         run: npm run db:migrate
 
       - name: Seed
         if: ${{ inputs.seed }}
-        working-directory: app
         run: npm run db:seed
