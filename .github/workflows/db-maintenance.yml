@@ -1,0 +1,43 @@
+name: Database maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      migrate:
+        description: "Run pending drizzle migrations"
+        type: boolean
+        default: true
+      seed:
+        description: "Seed the clinic directory"
+        type: boolean
+        default: true
+
+jobs:
+  db:
+    runs-on: ubuntu-latest
+    env:
+      # Use the DIRECT (non-pooled) Neon connection string here.
+      # DDL through the pooled endpoint can fail in transaction mode.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install
+        working-directory: app
+        run: npm ci
+
+      - name: Migrate
+        if: ${{ inputs.migrate }}
+        working-directory: app
+        run: npm run db:migrate
+
+      - name: Seed
+        if: ${{ inputs.seed }}
+        working-directory: app
+        run: npm run db:seed
