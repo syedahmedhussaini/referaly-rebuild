@@ -34,7 +34,7 @@ async function main() {
 main().then(
 	() => process.exit(0),
 	(err) => {
-		console.error('DIAGNOSE FAILED:', err);
+		console.error('DIAGNOSE FAILED:', err?.stack || err);
 		process.exit(1);
 	},
 );
