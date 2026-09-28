@@ -1,0 +1,1 @@
+ALTER TABLE "clinic_google_reviews" ADD COLUMN "google_maps_uri" text;

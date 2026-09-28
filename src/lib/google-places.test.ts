@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildTextSearchQuery,
+	metadataFieldMask,
 	normalizeOpeningHours,
 	normalizePlaceDetails,
 	normalizeReviews,
@@ -190,5 +191,31 @@ describe('normalizeOpeningHours', () => {
 			],
 		});
 		expect(result).toEqual({ mon: ['09:00–17:00'] });
+	});
+});
+
+describe('metadataFieldMask', () => {
+	it('stays on the Enterprise tier (no Atmosphere fields)', () => {
+		const mask = metadataFieldMask();
+		expect(mask).toContain('rating');
+		expect(mask).toContain('userRatingCount');
+		expect(mask).toContain('regularOpeningHours');
+		expect(mask).toContain('googleMapsUri');
+		expect(mask).not.toContain('reviews');
+		expect(mask).not.toContain('reviewSummary');
+	});
+});
+
+describe('normalizePlaceDetails googleMapsUri', () => {
+	it('extracts the Maps URI', () => {
+		const result = normalizePlaceDetails({
+			id: 'abc',
+			googleMapsUri: 'https://maps.google.com/?cid=123',
+		});
+		expect(result.googleMapsUri).toBe('https://maps.google.com/?cid=123');
+	});
+
+	it('is null when absent', () => {
+		expect(normalizePlaceDetails({ id: 'abc' }).googleMapsUri).toBeNull();
 	});
 });

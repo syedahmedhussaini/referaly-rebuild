@@ -72,6 +72,7 @@ export interface PlaceDetailsResult {
 	rating: number | null;
 	reviewCount: number | null;
 	reviews: NormalizedReview[];
+	googleMapsUri: string | null;
 }
 
 /** Normalizes a Place Details (New) response body. */
@@ -88,7 +89,17 @@ export function normalizePlaceDetails(place: unknown): PlaceDetailsResult {
 				? reviewCount
 				: null,
 		reviews: normalizeReviews(p.reviews),
+		googleMapsUri: asString(p.googleMapsUri),
 	};
+}
+
+/**
+ * Field mask for the combined metadata enrichment (hours + rating/count).
+ * Enterprise tier only — deliberately excludes `reviews`/`reviewSummary`,
+ * which would push the call into the pricier Enterprise + Atmosphere tier.
+ */
+export function metadataFieldMask(): string {
+	return 'id,displayName,rating,userRatingCount,regularOpeningHours,googleMapsUri';
 }
 
 export interface GeocodeResult {

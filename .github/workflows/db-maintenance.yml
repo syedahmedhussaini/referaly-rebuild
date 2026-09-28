@@ -15,8 +15,8 @@ on:
         description: "Geocode locations missing coordinates (OpenStreetMap, no key)"
         type: boolean
         default: false
-      enrich-hours:
-        description: "Fill missing opening hours from Google Places API (needs GOOGLE_MAPS_API_KEY secret)"
+      enrich-metadata:
+        description: "Enrich hours + Google rating/count (Places API, needs GOOGLE_MAPS_API_KEY secret)"
         type: boolean
         default: false
 jobs:
@@ -50,8 +50,8 @@ jobs:
         if: ${{ inputs.geocode }}
         run: npm run db:geocode:nominatim
 
-      - name: Enrich hours
-        if: ${{ inputs.enrich-hours }}
+      - name: Enrich metadata
+        if: ${{ inputs.enrich-metadata }}
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-        run: npm run db:enrich-hours
+        run: npm run db:migrate && npm run db:enrich-metadata

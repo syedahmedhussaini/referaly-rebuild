@@ -198,7 +198,7 @@ function HoursDisplay({ hours }: { hours: ClinicHours }) {
 	);
 }
 
-/** Google's attribution policy: show the author name with each review. */
+/** Google's attribution policy: show the aggregate rating with a link out. */
 function GoogleReviewsSection({
 	clinicName,
 	address,
@@ -208,11 +208,13 @@ function GoogleReviewsSection({
 	address: string | undefined;
 	reviews: ClinicGoogleReviews | null;
 }) {
-	const mapsUrl = reviews?.placeId
-		? `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(reviews.placeId)}`
-		: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-				[clinicName, address].filter(Boolean).join(', '),
-			)}`;
+	const mapsUrl =
+		reviews?.googleMapsUri ??
+		(reviews?.placeId
+			? `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(reviews.placeId)}`
+			: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+					[clinicName, address].filter(Boolean).join(', '),
+				)}`);
 
 	return (
 		<section
@@ -220,73 +222,37 @@ function GoogleReviewsSection({
 			className="mt-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"
 		>
 			<h2 className="text-lg font-semibold">What patients say</h2>
-			{reviews && reviews.reviews.length > 0 ? (
+			{reviews && (reviews.rating != null || reviews.reviewCount != null) ? (
 				<>
-					{(reviews.rating != null || reviews.reviewCount != null) && (
-						<p className="mt-2 flex items-center gap-2 text-sm text-neutral-600">
-							{reviews.rating != null && <Stars rating={reviews.rating} />}
-							{reviews.reviewCount != null && (
-								<span>
-									{reviews.reviewCount} Google review
-									{reviews.reviewCount === 1 ? '' : 's'}
-								</span>
-							)}
-						</p>
-					)}
-					<ul className="mt-4 space-y-4">
-						{reviews.reviews.map((r, i) => (
-							<li
-								key={`${r.author}-${r.publishedAt ?? i}`}
-								className="border-b border-neutral-100 pb-4 last:border-0 last:pb-0"
-							>
-								<div className="flex items-center justify-between gap-2">
-									<p className="text-sm font-medium text-neutral-900">
-										{r.authorUri ? (
-											<a
-												href={r.authorUri}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="hover:underline"
-											>
-												{r.author}
-											</a>
-										) : (
-											r.author
-										)}
-									</p>
-									{r.relativeTime && (
-										<p className="shrink-0 text-xs text-neutral-400">
-											{r.relativeTime}
-										</p>
-									)}
-								</div>
-								{r.rating != null && (
-									<div className="mt-1">
-										<Stars rating={r.rating} />
-									</div>
-								)}
-								{r.text && (
-									<p className="mt-1.5 text-sm text-neutral-700">{r.text}</p>
-								)}
-							</li>
-						))}
-					</ul>
-					<p className="mt-4 text-xs text-neutral-400">
-						Reviews from Google ·{' '}
+					<p className="mt-2 flex items-center gap-2 text-sm text-neutral-600">
+						{reviews.rating != null && <Stars rating={reviews.rating} />}
+						{reviews.rating != null && (
+							<span className="font-medium text-neutral-900">
+								{reviews.rating.toFixed(1)}
+							</span>
+						)}
+						{reviews.reviewCount != null && (
+							<span>
+								({reviews.reviewCount} Google review
+								{reviews.reviewCount === 1 ? '' : 's'})
+							</span>
+						)}
+					</p>
+					<p className="mt-3 text-sm">
 						<a
 							href={mapsUrl}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="text-blue-700 hover:underline"
 						>
-							See all reviews on Google Maps
+							Read reviews on Google
 						</a>
 					</p>
 				</>
 			) : (
 				<p className="mt-2 text-sm text-neutral-500">
 					{reviews
-						? 'No Google reviews found for this clinic yet.'
+						? 'No Google rating found for this clinic yet.'
 						: "Google reviews haven't been collected for this clinic yet."}
 				</p>
 			)}

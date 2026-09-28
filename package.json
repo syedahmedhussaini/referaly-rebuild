@@ -18,11 +18,10 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
     "db:geocode": "tsx src/db/geocode.ts",
-    "db:enrich-reviews": "tsx src/db/enrich-reviews.ts",
     "test": "vitest run",
     "start": "node --env-file=.env .output/server/index.mjs",
     "db:geocode:nominatim": "tsx src/db/geocode-nominatim.ts",
-    "db:enrich-hours": "tsx src/db/enrich-hours.ts"
+    "db:enrich-metadata": "tsx src/db/enrich-metadata.ts"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.3",

@@ -178,6 +178,8 @@ export const clinicGoogleReviews = pgTable(
 			.notNull()
 			.references(() => clinics.id, { onDelete: 'cascade' }),
 		placeId: text('place_id'),
+		/** Link to the place's Google Maps page (reviews live there). */
+		googleMapsUri: text('google_maps_uri'),
 		/** Aggregate Google rating, e.g. 4.3 (pg numeric -> string in JS). */
 		rating: numeric('rating'),
 		/** Total Google review count (userRatingCount). */

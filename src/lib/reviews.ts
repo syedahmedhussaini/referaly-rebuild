@@ -11,12 +11,13 @@ export interface ClinicGoogleReviews {
 	rating: number | null;
 	reviewCount: number | null;
 	reviews: NormalizedReview[];
+	googleMapsUri: string | null;
 	fetchedAt: string | null;
 }
 
 /**
  * Returns the cached Google reviews snapshot for a clinic, or null when the
- * enrichment script (`npm run db:enrich-reviews`) has never stored one.
+ * enrichment script (`npm run db:enrich-metadata`) has never stored one.
  * The `reviews` jsonb column is normalized to a JSON-safe shape here because
  * the server-fn serializer rejects drizzle's `unknown` jsonb type.
  */
@@ -32,6 +33,7 @@ export const getClinicReviews = createServerFn({ method: 'GET' })
 			rating: row.rating != null ? Number(row.rating) : null,
 			reviewCount: row.reviewCount,
 			reviews: normalizeReviews(row.reviews),
+			googleMapsUri: row.googleMapsUri,
 			fetchedAt: row.fetchedAt ? row.fetchedAt.toISOString() : null,
 		};
 	});
