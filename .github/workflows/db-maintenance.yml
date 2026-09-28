@@ -11,6 +11,10 @@ on:
         description: "Seed the clinic directory"
         type: boolean
         default: true
+      geocode:
+        description: "Geocode locations missing coordinates (OpenStreetMap, no key)"
+        type: boolean
+        default: false
 
 jobs:
   db:
@@ -38,3 +42,7 @@ jobs:
       - name: Seed
         if: ${{ inputs.seed }}
         run: npm run db:seed
+
+      - name: Geocode
+        if: ${{ inputs.geocode }}
+        run: npm run db:geocode:nominatim

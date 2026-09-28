@@ -20,7 +20,8 @@
     "db:geocode": "tsx src/db/geocode.ts",
     "db:enrich-reviews": "tsx src/db/enrich-reviews.ts",
     "test": "vitest run",
-    "start": "node --env-file=.env .output/server/index.mjs"
+    "start": "node --env-file=.env .output/server/index.mjs",
+    "db:geocode:nominatim": "tsx src/db/geocode-nominatim.ts"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.3",
