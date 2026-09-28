@@ -25,6 +25,28 @@ interface NominatimResult {
 	display_name: string;
 }
 
+/** Remove suite/unit/floor designations — they break Nominatim matching and
+ *  don't affect building-level pin placement. */
+function stripSuite(address: string): string {
+	return address
+		.replace(/,?\s*(suite|unit|floor|fl\.?|#)\s*[A-Za-z0-9-]+\s*(,|$)/gi, '$2')
+		.replace(/,\s*,/g, ',')
+		.replace(/\s+,/g, ',')
+		.trim();
+}
+
+/** Build a query from parts, skipping parts already present (case-insensitive)
+ *  — the stored address usually already contains city/province/postal. */
+function buildQuery(parts: (string | null)[]): string {
+	const out: string[] = [];
+	for (const part of parts) {
+		if (!part) continue;
+		const q = out.join(', ').toLowerCase();
+		if (!q.includes(part.toLowerCase())) out.push(part);
+	}
+	return out.join(', ');
+}
+
 async function geocode(query: string): Promise<{ lat: number; lng: number } | null> {
 	const url =
 		`${NOMINATIM_URL}?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
@@ -57,9 +79,13 @@ async function main() {
 	let skipped = 0;
 
 	for (const loc of pending) {
-		const query = [loc.address, loc.city, loc.province, loc.postalCode, 'Canada']
-			.filter(Boolean)
-			.join(', ');
+		const query = buildQuery([
+			stripSuite(loc.address),
+			loc.city,
+			loc.province,
+			loc.postalCode,
+			'Canada',
+		]);
 
 		let coords: { lat: number; lng: number } | null;
 		try {
