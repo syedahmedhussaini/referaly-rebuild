@@ -69,13 +69,6 @@ function DirectoryPage() {
 		});
 	}
 
-	function clearLocation() {
-		void navigate({
-			to: '/',
-			search: (prev) => ({ ...prev, lat: undefined, lng: undefined, label: undefined }),
-		});
-	}
-
 	return (
 		<div className="mx-auto max-w-7xl px-4 py-8">
 			<header>
@@ -89,33 +82,6 @@ function DirectoryPage() {
 				initial={{ scanType, lat, lng, label }}
 				onSearch={handleSearch}
 			/>
-
-			{searchingByLocation && (
-				<div className="mt-3 flex justify-center">
-					<span className="inline-flex items-center gap-2 rounded-full bg-neutral-900 py-1.5 pl-4 pr-2 text-sm text-white">
-						Near: {label ?? 'selected location'}
-						<button
-							type="button"
-							onClick={clearLocation}
-							aria-label="Clear location search"
-							className="rounded-full p-1 transition-colors hover:bg-neutral-700"
-						>
-							<svg
-								width="12"
-								height="12"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="3"
-								strokeLinecap="round"
-								aria-hidden="true"
-							>
-								<path d="M18 6L6 18M6 6l12 12" />
-							</svg>
-						</button>
-					</span>
-				</div>
-			)}
 
 			<nav aria-label="Filter by scan type" className="mt-6">
 				<div className="flex flex-wrap gap-2">

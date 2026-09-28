@@ -50,6 +50,7 @@ export function SearchBar({
 	initial: SearchValues;
 	onSearch: (values: SearchValues) => void;
 }) {
+	const [expanded, setExpanded] = useState(false);
 	const [address, setAddress] = useState(initial.label ?? '');
 	const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
 		initial.lat != null && initial.lng != null
@@ -74,6 +75,11 @@ export function SearchBar({
 		setService(initial.scanType);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [initial.label, initial.lat, initial.lng, initial.scanType]);
+
+	// Focus the Where input when the fake box expands into the full search.
+	useEffect(() => {
+		if (expanded) inputRef.current?.focus();
+	}, [expanded]);
 
 	// Attach Google Places Autocomplete to the Where input (Canada only).
 	useEffect(() => {
@@ -148,6 +154,7 @@ export function SearchBar({
 				return;
 			}
 		}
+		setExpanded(false);
 		onSearch({
 			scanType: service,
 			lat: resolved?.lat,
@@ -156,12 +163,55 @@ export function SearchBar({
 		});
 	}
 
+	// Collapsed fake search box (Airbnb-style) — expands on focus/click.
+	if (!expanded) {
+		const whereSummary = initial.label
+			? `Near ${initial.label}`
+			: 'Search by address';
+		const serviceSummary = initial.scanType
+			? SCAN_TYPE_LABELS[initial.scanType]
+			: 'Any service';
+		return (
+			<div className="mt-6 flex justify-center">
+				<button
+					type="button"
+					onClick={() => setExpanded(true)}
+					className="flex items-center gap-3 rounded-full border border-neutral-200 bg-white py-2 pl-6 pr-2 shadow-[0_6px_20px_rgba(0,0,0,0.08)] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.12)]"
+				>
+					<span className="max-w-48 truncate text-sm font-medium text-neutral-900">
+						{whereSummary}
+					</span>
+					<span aria-hidden="true" className="h-4 w-px bg-neutral-300" />
+					<span className="text-sm text-neutral-500">{serviceSummary}</span>
+					<span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-600 text-white">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2.5"
+							strokeLinecap="round"
+							aria-hidden="true"
+						>
+							<circle cx="11" cy="11" r="7" />
+							<path d="M21 21l-4.3-4.3" />
+						</svg>
+					</span>
+				</button>
+			</div>
+		);
+	}
+
 	return (
 		<div>
 			<form
 				onSubmit={handleSubmit}
 				role="search"
 				aria-label="Search clinics"
+				onKeyDown={(e) => {
+					if (e.key === 'Escape') setExpanded(false);
+				}}
 				className="mx-auto mt-6 flex max-w-2xl flex-col gap-1 rounded-3xl border border-neutral-200 bg-white p-2 shadow-[0_6px_20px_rgba(0,0,0,0.08)] sm:flex-row sm:items-stretch sm:rounded-full"
 			>
 				{/* Where */}

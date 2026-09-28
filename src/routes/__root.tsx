@@ -33,6 +33,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		<html lang="en">
 			<head>
 				<HeadContent />
+				{/* Recover from stale chunk 404s after a redeploy: the browser may
+				    hold HTML from deployment N while the CDN serves deployment N+1,
+				    so a lazy route chunk fails with "Failed to fetch dynamically
+				    imported module". Reload once (max 1/min) to pick up fresh HTML. */}
+				<script
+					dangerouslySetInnerHTML={{
+						__html: `(function(){var k='referaly-chunk-reload-ts';window.addEventListener('error',function(e){var m=String((e&&e.message)||'');if(m.indexOf('Failed to fetch dynamically imported module')===-1&&m.indexOf('Importing a module script failed')===-1)return;try{var last=Number(sessionStorage.getItem(k)||0);if(Date.now()-last>60000){sessionStorage.setItem(k,String(Date.now()));window.location.reload();}}catch(_){window.location.reload();}},true);})();`,
+					}}
+				/>
 			</head>
 			<body>
 				{children}
