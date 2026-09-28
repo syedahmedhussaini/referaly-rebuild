@@ -58,6 +58,7 @@ export function SearchBar({
 	);
 	const [service, setService] = useState<ScanType | undefined>(initial.scanType);
 	const [serviceOpen, setServiceOpen] = useState(false);
+	const [whereOpen, setWhereOpen] = useState(false);
 	const [locating, setLocating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -111,6 +112,7 @@ export function SearchBar({
 			return;
 		}
 		setLocating(true);
+		setWhereOpen(false);
 		setError(null);
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
@@ -163,11 +165,11 @@ export function SearchBar({
 				className="mx-auto mt-6 flex max-w-2xl flex-col gap-1 rounded-3xl border border-neutral-200 bg-white p-2 shadow-[0_6px_20px_rgba(0,0,0,0.08)] sm:flex-row sm:items-stretch sm:rounded-full"
 			>
 				{/* Where */}
-				<label className="flex-1 rounded-2xl px-5 py-2 transition-colors hover:bg-neutral-100 sm:rounded-full">
-					<span className="block text-[11px] font-bold uppercase tracking-wider text-neutral-900">
-						Where
-					</span>
-					<span className="flex items-center gap-1">
+				<div className="relative flex-1">
+					<label className="block rounded-2xl px-5 py-2 transition-colors hover:bg-neutral-100 sm:rounded-full">
+						<span className="block text-[11px] font-bold uppercase tracking-wider text-neutral-900">
+							Where
+						</span>
 						<input
 							ref={inputRef}
 							value={address}
@@ -175,40 +177,69 @@ export function SearchBar({
 								setAddress(e.target.value);
 								if (e.target.value.trim() === '') setCoords(null);
 							}}
+							onFocus={() => setWhereOpen(true)}
 							placeholder="Search by address"
 							autoComplete="off"
+							aria-expanded={whereOpen}
+							aria-haspopup="listbox"
 							className="w-full bg-transparent text-sm text-neutral-700 outline-none placeholder:text-neutral-400"
 						/>
-						<button
-							type="button"
-							onClick={useCurrentLocation}
-							title="Use current location"
-							aria-label="Use current location"
-							disabled={locating}
-							className="shrink-0 rounded-full p-1.5 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900 disabled:opacity-50"
-						>
-							{locating ? (
-								<span className="block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
-							) : (
-								<svg
-									width="16"
-									height="16"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									aria-hidden="true"
-								>
-									<circle cx="12" cy="12" r="7" />
-									<circle cx="12" cy="12" r="1.5" fill="currentColor" />
-									<path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-								</svg>
-							)}
-						</button>
-					</span>
-				</label>
+					</label>
+					{whereOpen && address.trim() === '' && (
+						<>
+							<button
+								type="button"
+								aria-hidden="true"
+								tabIndex={-1}
+								onClick={() => setWhereOpen(false)}
+								className="fixed inset-0 z-10 cursor-default bg-transparent"
+							/>
+							<ul
+								role="listbox"
+								aria-label="Location options"
+								className="absolute z-20 mt-1 w-64 rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl"
+							>
+								<li role="option" aria-selected={false}>
+									<button
+										type="button"
+										onClick={useCurrentLocation}
+										disabled={locating}
+										className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-neutral-100 disabled:opacity-50"
+									>
+										{locating ? (
+											<span className="block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
+										) : (
+											<svg
+												width="16"
+												height="16"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="2"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												aria-hidden="true"
+												className="shrink-0"
+											>
+												<circle cx="12" cy="12" r="7" />
+												<circle cx="12" cy="12" r="1.5" fill="currentColor" />
+												<path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+											</svg>
+										)}
+										<span>
+											<span className="block font-medium text-neutral-900">
+												Use current location
+											</span>
+											<span className="block text-xs text-neutral-500">
+												Find clinics near you
+											</span>
+										</span>
+									</button>
+								</li>
+							</ul>
+						</>
+					)}
+				</div>
 
 				<div
 					aria-hidden="true"
