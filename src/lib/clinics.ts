@@ -80,7 +80,16 @@ export const clinicIdValidator = standardValidator<
 });
 
 const clinicWith = {
-	locations: true,
+	// Exclude geom: drizzle-orm cannot parse PostGIS geometry inside
+	// relational (JSON-nested) queries — Postgres returns it as GeoJSON,
+	// not EWKB hex, and parseEWKB throws "Offset is outside the bounds of
+	// the DataView" (drizzle-team/drizzle-orm#2788, still open in 0.45.x).
+	// Coordinates come from getClinicsInBounds (raw SQL with ST_X/ST_Y).
+	locations: {
+		columns: {
+			geom: false,
+		},
+	},
 	services: true,
 	waitTimes: true,
 } as const;
@@ -105,7 +114,8 @@ type ClinicRow = {
 		city: string | null;
 		province: string | null;
 		postalCode: string | null;
-		geom: { x: number; y: number } | null;
+		// geom is excluded from the relational select (see clinicWith) —
+		// drizzle-orm can't parse PostGIS geometry in JSON-nested queries.
 		hours: unknown;
 	}>;
 	services: Array<{
