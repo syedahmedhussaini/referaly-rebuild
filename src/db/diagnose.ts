@@ -16,16 +16,20 @@ async function main() {
 	);
 	console.log('locations:', JSON.stringify(counts.rows));
 
-	// 2. The exact homepage loader query.
+	// 2. The exact homepage loader query (geom excluded — see clinicWith).
 	const rows = await db.query.clinics.findMany({
-		with: { locations: true, services: true, waitTimes: true },
+		with: {
+			locations: { columns: { geom: false } },
+			services: true,
+			waitTimes: true,
+		},
 		orderBy: (c, { asc }) => [asc(c.name)],
 	});
 	console.log(`clinics: ${rows.length}`);
 	for (const c of rows.slice(0, 3)) {
 		console.log(
 			`- ${c.name}: ${c.locations.length} location(s), ` +
-				`geom=${JSON.stringify(c.locations[0]?.geom)}`,
+				`locations=${c.locations.length}`,
 		);
 	}
 	console.log('DIAGNOSE OK');
