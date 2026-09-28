@@ -1,24 +1,42 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ClinicMap } from '#/components/ClinicMap';
-import type { ClinicDirectoryEntry, ScanType } from '#/lib/clinics';
+import { SearchBar, type SearchValues } from '#/components/SearchBar';
+import type { ClinicSearchEntry, ScanType } from '#/lib/clinics';
 import {
 	isScanType,
-	listClinics,
 	SCAN_TYPE_LABELS,
 	SCAN_TYPES,
+	searchClinics,
 } from '#/lib/clinics';
 
 export const Route = createFileRoute('/')({
-	// Optional key keeps `search` optional on Links to "/".
+	// Optional keys keep `search` optional on Links to "/".
 	validateSearch: (
 		search: Record<string, unknown>,
-	): { scanType?: ScanType } => ({
-		scanType: isScanType(search.scanType) ? search.scanType : undefined,
+	): { scanType?: ScanType; lat?: number; lng?: number; label?: string } => {
+		const num = (v: unknown, min: number, max: number): number | undefined => {
+			const n = typeof v === 'string' ? Number(v) : v;
+			return typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max
+				? n
+				: undefined;
+		};
+		return {
+			scanType: isScanType(search.scanType) ? search.scanType : undefined,
+			lat: num(search.lat, -90, 90),
+			lng: num(search.lng, -180, 180),
+			label:
+				typeof search.label === 'string' && search.label.length > 0
+					? search.label.slice(0, 120)
+					: undefined,
+		};
+	},
+	loaderDeps: ({ search }) => ({
+		scanType: search.scanType,
+		lat: search.lat,
+		lng: search.lng,
 	}),
-	loaderDeps: ({ search }) => ({ scanType: search.scanType }),
-	loader: async ({ deps }) =>
-		listClinics({ data: { scanType: deps.scanType } }),
+	loader: async ({ deps }) => searchClinics({ data: deps }),
 	head: () => ({
 		meta: [
 			{ title: 'Referaly — Imaging Clinic Wait Times in the GTA' },
@@ -34,8 +52,29 @@ export const Route = createFileRoute('/')({
 
 function DirectoryPage() {
 	const clinicList = Route.useLoaderData();
-	const { scanType } = Route.useSearch();
+	const { scanType, lat, lng, label } = Route.useSearch();
+	const navigate = useNavigate();
 	const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
+	const searchingByLocation = lat != null && lng != null;
+
+	function handleSearch(values: SearchValues) {
+		void navigate({
+			to: '/',
+			search: {
+				scanType: values.scanType,
+				lat: values.lat,
+				lng: values.lng,
+				label: values.label,
+			},
+		});
+	}
+
+	function clearLocation() {
+		void navigate({
+			to: '/',
+			search: (prev) => ({ ...prev, lat: undefined, lng: undefined, label: undefined }),
+		});
+	}
 
 	return (
 		<div className="mx-auto max-w-7xl px-4 py-8">
@@ -45,6 +84,38 @@ function DirectoryPage() {
 					Imaging clinic wait times in the GTA
 				</p>
 			</header>
+
+			<SearchBar
+				initial={{ scanType, lat, lng, label }}
+				onSearch={handleSearch}
+			/>
+
+			{searchingByLocation && (
+				<div className="mt-3 flex justify-center">
+					<span className="inline-flex items-center gap-2 rounded-full bg-neutral-900 py-1.5 pl-4 pr-2 text-sm text-white">
+						Near: {label ?? 'selected location'}
+						<button
+							type="button"
+							onClick={clearLocation}
+							aria-label="Clear location search"
+							className="rounded-full p-1 transition-colors hover:bg-neutral-700"
+						>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="3"
+								strokeLinecap="round"
+								aria-hidden="true"
+							>
+								<path d="M18 6L6 18M6 6l12 12" />
+							</svg>
+						</button>
+					</span>
+				</div>
+			)}
 
 			<nav aria-label="Filter by scan type" className="mt-6">
 				<div className="flex flex-wrap gap-2">
@@ -118,7 +189,10 @@ function DirectoryPage() {
 					}`}
 				>
 					<div className="h-[60vh] lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
-						<ClinicMap scanType={scanType} />
+						<ClinicMap
+							scanType={scanType}
+							center={searchingByLocation ? { lat, lng } : undefined}
+						/>
 					</div>
 				</aside>
 			</div>
@@ -140,7 +214,8 @@ function FilterTab({
 	return (
 		<Link
 			to={to}
-			search={search}
+			// Merge so filter tabs preserve an active location search.
+			search={(prev) => ({ ...prev, ...search })}
 			aria-pressed={active}
 			className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
 				active
@@ -153,17 +228,26 @@ function FilterTab({
 	);
 }
 
-function ClinicCard({ clinic }: { clinic: ClinicDirectoryEntry }) {
+function ClinicCard({ clinic }: { clinic: ClinicSearchEntry }) {
 	const location = clinic.locations[0];
 	return (
 		<li className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
-			<Link
-				to="/clinic/$clinicId"
-				params={{ clinicId: clinic.id }}
-				className="text-xl font-semibold text-neutral-900 hover:underline"
-			>
-				{clinic.name}
-			</Link>
+			<div className="flex items-start justify-between gap-3">
+				<Link
+					to="/clinic/$clinicId"
+					params={{ clinicId: clinic.id }}
+					className="text-xl font-semibold text-neutral-900 hover:underline"
+				>
+					{clinic.name}
+				</Link>
+				{clinic.distanceKm != null && (
+					<span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-700">
+						{clinic.distanceKm < 1
+							? `${Math.round(clinic.distanceKm * 1000)} m away`
+							: `${clinic.distanceKm.toFixed(1)} km away`}
+					</span>
+				)}
+			</div>
 			<div className="mt-2 flex flex-wrap gap-1.5">
 				{clinic.services.map((s) => (
 					<span

@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { db } from '#/db/client';
 import type { ScanType } from '#/db/schema';
 import { clinics, scanTypeEnum, services } from '#/db/schema';
@@ -204,3 +204,131 @@ export type ClinicDirectoryEntry = Awaited<
 	ReturnType<typeof listClinics>
 >[number];
 export type ClinicDetail = Awaited<ReturnType<typeof getClinic>>;
+
+/** Directory entry with distance from the search origin (null when no geo search). */
+export type ClinicSearchEntry = ClinicDirectoryEntry & {
+	distanceKm: number | null;
+};
+
+const searchValidator = standardValidator<
+	{
+		scanType?: ScanType;
+		lat?: number;
+		lng?: number;
+		radiusKm?: number;
+	},
+	{
+		scanType: ScanType | undefined;
+		lat: number | undefined;
+		lng: number | undefined;
+		radiusKm: number;
+	}
+>((value) => {
+	const v = (value ?? {}) as {
+		scanType?: unknown;
+		lat?: unknown;
+		lng?: unknown;
+		radiusKm?: unknown;
+	};
+	const lat =
+		typeof v.lat === 'number' && Number.isFinite(v.lat) && v.lat >= -90 && v.lat <= 90
+			? v.lat
+			: undefined;
+	const lng =
+		typeof v.lng === 'number' &&
+		Number.isFinite(v.lng) &&
+		v.lng >= -180 &&
+		v.lng <= 180
+			? v.lng
+			: undefined;
+	const radiusKm =
+		typeof v.radiusKm === 'number' &&
+		Number.isFinite(v.radiusKm) &&
+		v.radiusKm > 0 &&
+		v.radiusKm <= 100
+			? v.radiusKm
+			: 25;
+	return {
+		value: {
+			scanType: isScanType(v.scanType) ? v.scanType : undefined,
+			lat,
+			lng,
+			radiusKm,
+		},
+	};
+});
+
+/**
+ * Geo-aware directory search. When lat/lng are given, returns clinics within
+ * `radiusKm` ordered by distance (nearest first) with `distanceKm` attached;
+ * otherwise behaves like listClinics with `distanceKm: null`. Optional
+ * scan-type filter applies in both cases.
+ */
+export const searchClinics = createServerFn({ method: 'GET' })
+	.validator(searchValidator)
+	.handler(async ({ data }): Promise<ClinicSearchEntry[]> => {
+		const { scanType, lat, lng, radiusKm } = data;
+
+		const scanFilter = scanType
+			? sql`AND EXISTS (
+					SELECT 1 FROM services s2
+					WHERE s2.clinic_id = c.id AND s2.scan_type = ${scanType}
+				)`
+			: sql``;
+
+		// Resolve matching clinic IDs in display order (distance or name).
+		let ordered: Array<{ clinicId: string; distanceKm: number | null }>;
+		if (lat != null && lng != null) {
+			const result = await db.execute(sql`
+				SELECT
+					c.id AS "clinicId",
+					MIN(
+						ST_Distance(
+							l.geom::geography,
+							ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
+						)
+					) / 1000 AS "distanceKm"
+				FROM clinics c
+				JOIN locations l ON l.clinic_id = c.id
+				WHERE l.geom IS NOT NULL
+					AND ST_DWithin(
+						l.geom::geography,
+						ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+						${radiusKm * 1000}
+					)
+					${scanFilter}
+				GROUP BY c.id
+				ORDER BY "distanceKm"
+			`);
+			ordered = (
+				result.rows as Array<{ clinicId: string; distanceKm: string | number }>
+			).map((r) => ({ clinicId: r.clinicId, distanceKm: Number(r.distanceKm) }));
+		} else {
+			const result = await db.execute(sql`
+				SELECT c.id AS "clinicId"
+				FROM clinics c
+				WHERE TRUE ${scanFilter}
+				ORDER BY c.name ASC
+			`);
+			ordered = (result.rows as Array<{ clinicId: string }>).map((r) => ({
+				clinicId: r.clinicId,
+				distanceKm: null,
+			}));
+		}
+
+		if (ordered.length === 0) return [];
+		const rows: ClinicRow[] = await db.query.clinics.findMany({
+			where: inArray(
+				clinics.id,
+				ordered.map((o) => o.clinicId),
+			),
+			with: clinicWith,
+		});
+		const byId = new Map(rows.map((r) => [r.id, r]));
+		return ordered.flatMap((o) => {
+			const row = byId.get(o.clinicId);
+			return row
+				? [{ ...toSerializableClinic(row), distanceKm: o.distanceKm }]
+				: [];
+		});
+	});

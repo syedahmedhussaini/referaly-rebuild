@@ -42,9 +42,17 @@ type MapStatus = 'loading' | 'ready' | 'empty' | 'error';
  * refetch (debounced) on pan/zoom; markers cluster via MarkerClusterer.
  * Renders a graceful fallback when no browser API key is configured.
  */
-export function ClinicMap({ scanType }: { scanType: ScanType | undefined }) {
+export function ClinicMap({
+	scanType,
+	center,
+}: {
+	scanType: ScanType | undefined;
+	/** When set (e.g. from a location search), the map pans here. */
+	center?: { lat: number; lng: number };
+}) {
 	const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 	const containerRef = useRef<HTMLDivElement>(null);
+	const mapRef = useRef<google.maps.Map | null>(null);
 	const refetchRef = useRef<() => void>(() => {});
 	const scanTypeRef = useRef(scanType);
 	scanTypeRef.current = scanType;
@@ -75,6 +83,7 @@ export function ClinicMap({ scanType }: { scanType: ScanType | undefined }) {
 				streetViewControl: false,
 				fullscreenControl: false,
 			});
+			mapRef.current = map;
 			clusterer = new MarkerClusterer({ map });
 
 			async function fetchMarkers() {
@@ -140,8 +149,18 @@ export function ClinicMap({ scanType }: { scanType: ScanType | undefined }) {
 			infoWindow?.close();
 			clusterer?.clearMarkers();
 			clusterer = null;
+			mapRef.current = null;
 		};
 	}, []);
+
+	// Pan to a searched location. The map's bounds_changed listener refetches
+	// markers for the new viewport automatically.
+	useEffect(() => {
+		if (center && mapRef.current) {
+			mapRef.current.panTo(center);
+			mapRef.current.setZoom(12);
+		}
+	}, [center?.lat, center?.lng]);
 
 	// Refetch markers when the scan-type filter changes. The filter value is
 	// read via scanTypeRef inside fetchMarkers; the dep below re-runs this
