@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildTextSearchQuery,
+	normalizeOpeningHours,
 	normalizePlaceDetails,
 	normalizeReviews,
 	parseGeocodeResponse,
@@ -138,5 +139,56 @@ describe('parseGeocodeResponse', () => {
 	it('returns null for malformed payloads', () => {
 		expect(parseGeocodeResponse(null)).toBeNull();
 		expect(parseGeocodeResponse({ status: 'OK', results: [] })).toBeNull();
+	});
+});
+
+describe('normalizeOpeningHours', () => {
+	it('converts periods to day-keyed ranges', () => {
+		const result = normalizeOpeningHours({
+			periods: [
+				{ open: { day: 1, hour: 9, minute: 0 }, close: { day: 1, hour: 17, minute: 0 } },
+				{ open: { day: 2, hour: 9, minute: 30 }, close: { day: 2, hour: 18, minute: 0 } },
+			],
+		});
+		expect(result).toEqual({
+			mon: ['09:00–17:00'],
+			tue: ['09:30–18:00'],
+		});
+	});
+
+	it('handles multiple periods per day (split shifts)', () => {
+		const result = normalizeOpeningHours({
+			periods: [
+				{ open: { day: 5, hour: 9, minute: 0 }, close: { day: 5, hour: 12, minute: 0 } },
+				{ open: { day: 5, hour: 13, minute: 0 }, close: { day: 5, hour: 17, minute: 0 } },
+			],
+		});
+		expect(result).toEqual({ fri: ['09:00–12:00', '13:00–17:00'] });
+	});
+
+	it('maps Sunday (day 0) correctly', () => {
+		const result = normalizeOpeningHours({
+			periods: [
+				{ open: { day: 0, hour: 10, minute: 0 }, close: { day: 0, hour: 14, minute: 0 } },
+			],
+		});
+		expect(result).toEqual({ sun: ['10:00–14:00'] });
+	});
+
+	it('returns null for missing or empty periods', () => {
+		expect(normalizeOpeningHours(null)).toBeNull();
+		expect(normalizeOpeningHours({})).toBeNull();
+		expect(normalizeOpeningHours({ periods: [] })).toBeNull();
+	});
+
+	it('skips malformed periods', () => {
+		const result = normalizeOpeningHours({
+			periods: [
+				{ open: { day: 1, hour: 9 }, close: { day: 1, hour: 17 } },
+				{ open: {}, close: {} },
+				{ open: { day: 9, hour: 9 }, close: { day: 9, hour: 17 } },
+			],
+		});
+		expect(result).toEqual({ mon: ['09:00–17:00'] });
 	});
 });

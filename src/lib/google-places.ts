@@ -127,3 +127,47 @@ export function parseGeocodeResponse(json: unknown): GeocodeResult | null {
 	// Malformed payload (no status at all) — treat as no result.
 	return null;
 }
+
+/** Day index (0=Sunday, per Places API) -> short key used in our hours shape. */
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+function pad2(n: number): string {
+	return String(n).padStart(2, '0');
+}
+
+/**
+ * Normalizes the `regularOpeningHours` object from Place Details (New) into
+ * our stored hours shape: `{ mon: ["09:00","17:00"], tue: [...], ... }`.
+ * Handles multiple periods per day (e.g. split shifts) and overnight hours
+ * (close.day > open.day). Returns null when no usable periods exist.
+ */
+export function normalizeOpeningHours(
+	regularOpeningHours: unknown,
+): Record<string, string[]> | null {
+	const root = (regularOpeningHours ?? {}) as Record<string, unknown>;
+	const periods = root.periods;
+	if (!Array.isArray(periods) || periods.length === 0) return null;
+
+	const out: Record<string, string[]> = {};
+	for (const p of periods) {
+		const period = (p ?? {}) as Record<string, unknown>;
+		const open = (period.open ?? {}) as Record<string, unknown>;
+		const close = (period.close ?? {}) as Record<string, unknown>;
+		const day = open.day;
+		if (typeof day !== 'number' || day < 0 || day > 6) continue;
+		const openHour = open.hour;
+		const openMin = typeof open.minute === 'number' ? open.minute : 0;
+		const closeHour = close.hour;
+		const closeMin = typeof close.minute === 'number' ? close.minute : 0;
+		if (typeof openHour !== 'number' || typeof closeHour !== 'number') continue;
+		const key = DAY_KEYS[day];
+		const range = `${pad2(openHour)}:${pad2(openMin)}–${pad2(closeHour)}:${pad2(closeMin)}`;
+		(out[key] ??= []).push(range);
+	}
+	return Object.keys(out).length > 0 ? out : null;
+}
+
+/** Field mask for Place Details when we only need opening hours. */
+export function openingHoursFieldMask(): string {
+	return 'id,displayName,regularOpeningHours';
+}
