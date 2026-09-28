@@ -1,6 +1,6 @@
 /**
  * Phase 1 seed: imports demo clinic data from
- * ~/workspace/referaly-rebuild/seed-data/clinics.json into the
+ * <repo>/seed-data/clinics.json into the
  * `clinics`, `locations`, and `services` tables.
  *
  * Idempotent — clinics already present (matched by name + address) are skipped.
@@ -62,7 +62,7 @@ function parseAddress(address: string): {
 
 async function main() {
 	const seedPath = fileURLToPath(
-		new URL('../../../seed-data/clinics.json', import.meta.url),
+		new URL('../../seed-data/clinics.json', import.meta.url),
 	);
 	const raw = await readFile(seedPath, 'utf-8');
 	const seed = JSON.parse(raw) as SeedFile;
