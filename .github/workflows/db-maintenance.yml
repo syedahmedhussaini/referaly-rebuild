@@ -53,4 +53,4 @@ jobs:
 
       - name: Diagnose
         if: ${{ inputs.diagnose }}
-        run: npm run db:rawcheck
+        run: npm run db:diagnose
