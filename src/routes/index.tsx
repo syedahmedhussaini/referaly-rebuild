@@ -72,9 +72,12 @@ function DirectoryPage() {
 	return (
 		<div className="mx-auto max-w-7xl px-4 py-8">
 			<header>
-				<h1 className="text-4xl font-bold tracking-tight">Referaly</h1>
-				<p className="mt-2 text-lg text-neutral-600">
+				<h1 className="text-4xl font-bold tracking-tight">
 					Imaging clinic wait times in the GTA
+				</h1>
+				<p className="mt-2 text-lg text-neutral-600">
+					Find X-ray, ultrasound, MRI and more — compare real patient-reported
+					wait times.
 				</p>
 			</header>
 

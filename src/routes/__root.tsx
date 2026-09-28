@@ -2,9 +2,15 @@ import { TanStackDevtools } from '@tanstack/react-devtools';
 import { createRootRoute, HeadContent, Scripts } from '@tanstack/react-router';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 
+import { SiteHeader } from '#/components/SiteHeader';
+import { getSession } from '#/lib/session';
 import appCss from '../styles.css?url';
 
 export const Route = createRootRoute({
+	beforeLoad: async () => {
+		const session = await getSession();
+		return { session };
+	},
 	head: () => ({
 		meta: [
 			{
@@ -44,7 +50,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				/>
 			</head>
 			<body>
-				{children}
+				<RootWithHeader>{children}</RootWithHeader>
 				<TanStackDevtools
 					config={{
 						position: 'bottom-right',
@@ -59,5 +65,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<Scripts />
 			</body>
 		</html>
+	);
+}
+
+function RootWithHeader({ children }: { children: React.ReactNode }) {
+	const { session } = Route.useRouteContext();
+	return (
+		<>
+			<SiteHeader session={session} />
+			{children}
+		</>
 	);
 }
